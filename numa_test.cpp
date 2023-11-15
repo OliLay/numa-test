@@ -5,6 +5,7 @@
 #include <iostream>
 #include <sched.h>
 #include <string>
+#include <thread>
 
 
 void pin_myself_to(int core) {
@@ -49,7 +50,7 @@ int main(int argc, char *argv[]) {
 
   // write so we actually allocate.
   for (size_t i{0}; i < array_size; i++) {
-    large_array[i] = 0x42;
+    large_array[i] = 0xdeadbeef;
   }
 
   pin_myself_to(second_pin);
