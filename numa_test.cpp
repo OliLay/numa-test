@@ -6,6 +6,9 @@
 #include <sched.h>
 #include <string>
 #include <thread>
+#include <algorithm>
+#include <iterator>
+#include <random>
 
 
 void pin_myself_to(int core) {
@@ -21,15 +24,15 @@ void pin_myself_to(int core) {
   }
 }
 
-void __attribute__((optimize("O0"))) read_data(size_t array_size, uint64_t* large_array) {
-  for (int i{0}; i < array_size; i++) {
+void __attribute__((optimize("O0"))) read_data(size_t array_size, uint64_t* large_array, const std::vector<uint64_t>& permutation) {
+  for (const auto& i : permutation) {
     auto test{large_array[i]};
   }
 }
 
 int main(int argc, char *argv[]) {
   if (argc < 3) {
-    std::cout << "Please specify at least [first-pin] [second-pin]" << std::endl;
+    std::cout << "[first-pin] [second-pin] [array_size] [random|sequential]" << std::endl;
     exit(1);
   }
   const int first_pin{atoi(argv[1])};
@@ -46,6 +49,16 @@ int main(int argc, char *argv[]) {
 
   std::cout << "Array size is " << array_size << std::endl;
 
+
+  bool random{false};
+  if (argc > 4) {
+    std::string mode{argv[4]};
+
+    random = mode == "random";
+  }
+
+  std::cout << (random ? "Random" : "Sequential") << " access of the array" << std::endl;
+
   auto* large_array = new uint64_t[array_size];
 
   // write so we actually allocate.
@@ -55,6 +68,15 @@ int main(int argc, char *argv[]) {
 
   pin_myself_to(second_pin);
 
+  std::vector<uint64_t> random_index_permutation(array_size);
+  std::iota(std::begin(random_index_permutation), std::end(random_index_permutation), 0);
+
+  if (random) {
+    std::random_device rd;
+    std::mt19937 g(rd());
+    std::shuffle(std::begin(random_index_permutation), std::end(random_index_permutation), g);
+  }
+
   std::cout << "Please attach with perf and then hit some key" << std::endl;
 
   std::string line;
@@ -63,7 +85,7 @@ int main(int argc, char *argv[]) {
   std::chrono::steady_clock::time_point begin =
       std::chrono::steady_clock::now();
 
-  read_data(array_size, large_array);
+  read_data(array_size, large_array, random_index_permutation);
 
   std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
 
