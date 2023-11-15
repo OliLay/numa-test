@@ -68,6 +68,8 @@ int main(int argc, char *argv[]) {
 
   pin_myself_to(second_pin);
 
+  std::this_thread::sleep_for(std::chrono::seconds(1)); // Sleep so we get rescheduled with the new pinning.
+
   std::vector<uint64_t> random_index_permutation(array_size);
   std::iota(std::begin(random_index_permutation), std::end(random_index_permutation), 0);
 
