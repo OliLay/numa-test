@@ -8,3 +8,5 @@ project(
 
 
 add_executable(numatest numa_test.cpp)
+
+target_link_libraries(numatest -lnuma)

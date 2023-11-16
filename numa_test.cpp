@@ -6,9 +6,12 @@
 #include <sched.h>
 #include <string>
 #include <thread>
+#include <unistd.h>
 #include <algorithm>
 #include <iterator>
 #include <random>
+#include <numaif.h>
+#include <numa.h>
 
 
 void pin_myself_to(int core) {
@@ -24,17 +27,44 @@ void pin_myself_to(int core) {
   }
 }
 
+void set_numa_interleave_policy() {
+  const long unsigned int mask = 0xFFFFFFFF;
+  int result = set_mempolicy(MPOL_INTERLEAVE, &mask, 5); // 5 instead of 4 due to https://bugzilla.kernel.org/show_bug.cgi?id=201433
+
+  if (result != 0) {
+    std::cout << "Could not set mempolicy " << result << std::endl;
+    exit(1);
+  }
+}
+
 void __attribute__((optimize("O0"))) read_data(size_t array_size, uint64_t* large_array, const std::vector<uint64_t>& permutation) {
   for (const auto& i : permutation) {
     auto test{large_array[i]};
   }
 }
 
+
+
 int main(int argc, char *argv[]) {
   if (argc < 3) {
-    std::cout << "[first-pin] [second-pin] [array_size] [random|sequential]" << std::endl;
+    std::cout << "[first-pin] [second-pin] [array_size] [random|sequential] [--alloc-interleave|-alloc-on {0-3}]" << std::endl;
     exit(1);
   }
+
+  int alloc_on_node = -1;
+  for (int i = 0; i < argc; i++) {
+    std::string argument{argv[i]};
+    if (argument == "--alloc-interleave") {
+      std::cout << "Activating NUMA interleave" << std::endl;
+      set_numa_interleave_policy();
+    }
+
+    if (argument == "--alloc-on") {
+      alloc_on_node = atoi(argv[i + 1]);
+      std::cout << "Alloc on NUMA node " << alloc_on_node << std::endl;
+    }
+  }
+
   const int first_pin{atoi(argv[1])};
   const int second_pin{atoi(argv[2])};
 
@@ -59,7 +89,13 @@ int main(int argc, char *argv[]) {
 
   std::cout << (random ? "Random" : "Sequential") << " access of the array" << std::endl;
 
-  auto* large_array = new uint64_t[array_size];
+  uint64_t* large_array;
+  if (alloc_on_node == -1) {
+    large_array = new uint64_t[array_size];
+  } else {
+    large_array = (uint64_t*) numa_alloc_onnode(sizeof(uint64_t) * array_size, alloc_on_node);
+  }
+   
 
   // write so we actually allocate.
   for (size_t i{0}; i < array_size; i++) {
@@ -96,6 +132,8 @@ int main(int argc, char *argv[]) {
                                                                      begin)
                    .count()
             << "ms" << std::endl;
+
+  // Note: Omitted free() to not let it being counted. Ofc, above code leaks memory.
 
   return 0;
 }

@@ -39,7 +39,7 @@ events_to_args() {
 }
 
 CMD="./build/numatest"
-PERF_ARGS="$(events_to_args , ${EVENTS[*]:18:23})"
+PERF_ARGS="$(events_to_args , ${EVENTS[*]:18:4})"
 #PERF_ARGS="$(events_to_args , ${EVENTS[*]:18})"
 #PERF_ARGS="$(events_to_args , ${EVENTS[*]:0:1}),$(events_to_args , ${EVENTS[*]:6:1}),$(events_to_args , ${EVENTS[*]:12:1}),$(events_to_args , ${EVENTS[*]:18:1})"
 
@@ -59,6 +59,8 @@ cat $FIFO | $CMD ${*} | while read -r LINE; do
   echo $LINE
   if [[ "$LINE" =~ ^"${PROMPT}".* ]]; then
     PID=$(pidof numatest)
+
+    numastat -c $PID # print NUMA alloc stats
     perf stat -e $PERF_ARGS --pid $PID &
     sleep 0.5
     echo "" > $FIFO
